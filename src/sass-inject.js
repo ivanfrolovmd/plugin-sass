@@ -1,51 +1,53 @@
-import reqwest from 'reqwest';
-import url from 'url';
-import './modernizr';
+var reqwest = require('reqwest');
+var url = require('url');
+require('./modernizr');
 
-let urlBase;
+var urlBase;
 
-const importSass = new Promise((resolve, reject) => {
+var importSass = new Promise(function(resolve, reject){
   if (Modernizr.webworkers) {
-    System.import('sass.js/dist/sass', __moduleName).then(Sass => {
+    System.import('sass.js/dist/sass', __moduleName).then(function(Sass){
       resolve(new Sass());
-    }).catch(err => reject(err));
+    }).catch(function(err){reject(err)});
   } else {
-    System.import('sass.js/dist/sass.sync', __moduleName).then(Sass => {
+    System.import('sass.js/dist/sass.sync', __moduleName).then(function(Sass){
       resolve(Sass);
-    }).catch(err => reject(err));
+    }).catch(function(err){reject(err)});
   }
 });
 
 
 // intercept file loading requests (@import directive) from libsass
-importSass.then(sass => {
-  sass.importer((request, done) => {
-    const { current } = request;
+importSass.then(function(sass){
+  sass.importer(function(request, done){
+    var current = request;
     // Currently only supporting scss imports due to
     // https://github.com/sass/libsass/issues/1695
-    const importUrl = url.resolve(urlBase, `${current}.scss`);
-    const partialUrl = importUrl.replace(/\/([^/]*)$/, '/_$1');
-    let content;
+    console.log(current);
+    console.log(current+'.scss');
+    var importUrl = url.resolve(urlBase, current+'.scss');
+    var partialUrl = importUrl.replace(/\/([^/]*)$/, '/_$1');
+    var content;
     reqwest(partialUrl)
-      .then(resp => {
+      .then(function(resp){
         // In Cordova Apps the response is the raw XMLHttpRequest
         content = resp.responseText ? resp.responseText : resp;
         return content;
       })
-      .catch(() => reqwest(importUrl))
-      .then(resp => {
+      .catch(function(){reqwest(importUrl)})
+      .then(function(resp){
         content = resp.responseText ? resp.responseText : resp;
         return content;
       })
-      .then(() => done({ content }));
+      .then(function(){done(content)});
   });
 });
 
 
-const compile = scss => {
-  return new Promise((resolve, reject) => {
-    importSass.then(sass => {
-      sass.compile(scss.content, scss.options, result => {
+var compile = function(scss) {
+  return new Promise(function(resolve, reject){
+    importSass.then(function(sass) {
+      sass.compile(scss.content, scss.options, function(result) {
         if (result.status === 0) {
           const style = document.createElement('style');
           style.textContent = result.text;
@@ -60,17 +62,17 @@ const compile = scss => {
   });
 };
 
-export default load => {
+
+exports.default = function(load) {
   urlBase = load.address;
-  const indentedSyntax = urlBase.endsWith('.sass');
+  var indentedSyntax = urlBase.endsWith('.sass');
   // load initial scss file
   return reqwest(urlBase)
-    // In Cordova Apps the response is the raw XMLHttpRequest
-    .then(resp => {
-      return {
-        content: (resp.responseText ? resp.responseText : resp),
-        options: { indentedSyntax },
-      };
-    })
-    .then(compile);
+          .then(function(resp) {
+            return {
+              content: (resp.responseText ? resp.responseText : resp),
+              options: indentedSyntax
+            };
+          })
+          .then(compile);
 };
